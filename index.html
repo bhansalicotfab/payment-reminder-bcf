@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4CAF50">
+  <meta name="description" content="Payment Reminder App for BCF Ledger">
+  <title>Payment Reminder - BCF Ledger</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>💰 Payment Reminder</h1>
+      <div class="sync-status">
+        <span id="syncStatus">Ready to sync</span>
+        <button class="sync-btn" id="syncBtn">🔄 Sync from Drive</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stat-card">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Total Parties</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">₹0</div>
+        <div class="stat-label">Total Debit</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">₹0</div>
+        <div class="stat-label">Total Credit</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">₹0</div>
+        <div class="stat-label">Net Balance</div>
+      </div>
+    </div>
+
+    <div class="filter-tabs" id="filterTabs"></div>
+
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="🔍 Search party name...">
+    </div>
+
+    <div class="ledger-list" id="ledgerList">
+      <div class="loading">Click "Sync from Drive" to load your ledger data</div>
+    </div>
+  </div>
+
+  <div class="install-prompt" id="installPrompt" style="display: none;">
+    <div class="install-card">
+      <h3>📱 Install App</h3>
+      <p>Add to your home screen for quick access!</p>
+      <button id="installBtn">Install Now</button>
+      <button id="dismissBtn">Maybe Later</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
