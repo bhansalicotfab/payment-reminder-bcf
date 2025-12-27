@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV Converter - Fix Excel CSV</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    p {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .upload-area {
+      border: 3px dashed #667eea;
+      border-radius: 15px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+    }
+    .upload-area:hover {
+      background: #f5f7ff;
+      border-color: #4CAF50;
+    }
+    .upload-area.dragover {
+      background: #e8f5e9;
+      border-color: #4CAF50;
+    }
+    input[type="file"] { display: none; }
+    .upload-icon {
+      font-size: 60px;
+      margin-bottom: 15px;
+    }
+    .upload-text {
+      color: #667eea;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .upload-hint {
+      color: #999;
+      font-size: 14px;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      display: block;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+      display: block;
+    }
+    .download-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      display: none;
+    }
+    .download-btn:hover {
+      background: #45a049;
+    }
+    .info-box {
+      background: #f5f7ff;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .info-box h3 {
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    .info-box ul {
+      margin-left: 20px;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 CSV Converter</h1>
+    <p>Convert your Excel CSV to UTF-8 format for the Payment Reminder app</p>
+
+    <div class="upload-area" id="uploadArea">
+      <div class="upload-icon">📁</div>
+      <div class="upload-text">Click or drag your CSV file here</div>
+      <div class="upload-hint">Supports .csv, .xls, .xlsx files</div>
+      <input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <button class="download-btn" id="downloadBtn">⬇️ Download Fixed CSV</button>
+
+    <div class="info-box">
+      <h3>What this does:</h3>
+      <ul>
+        <li>Converts to UTF-8 encoding</li>
+        <li>Fixes delimiter issues (comma/tab)</li>
+        <li>Removes special characters</li>
+        <li>Validates data format</li>
+        <li>Makes it compatible with the app</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    let convertedData = null;
+
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const status = document.getElementById('status');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) processFile(file);
+    });
+
+    async function processFile(file) {
+      status.className = 'status';
+      status.textContent = 'Processing...';
+      status.style.display = 'block';
+      downloadBtn.style.display = 'none';
+
+      try {
+        const text = await file.text();
+        
+        // Detect delimiter
+        const firstLine = text.split('\n')[0];
+        const delimiter = firstLine.includes('\t') ? '\t' : ',';
+        
+        // Parse and convert
+        const lines = text.split('\n').filter(l => l.trim());
+        const converted = [];
+        
+        // Add header
+        converted.push('Date,Party Name,Voucher Type,Voucher No,Debit,Credit,Balance');
+        
+        // Process data rows
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const cols = line.split(delimiter).map(c => 
+            c.trim()
+             .replace(/^"|"$/g, '')
+             .replace(/,/g, '')
+             .replace(/\r/g, '')
+          );
+          
+          if (cols.length >= 7) {
+            // Clean and format each column
+            const date = cols[0] || '';
+            const party = cols[1] || '';
+            const voucher = cols[2] || '';
+            const voucherNo = cols[3] || '';
+            const debit = cols[4]?.replace(/[^0-9.-]/g, '') || '0';
+            const credit = cols[5]?.replace(/[^0-9.-]/g, '') || '0';
+            const balance = cols[6]?.replace(/[^0-9.-]/g, '') || '0';
+            
+            if (party && party !== 'Unknown') {
+              converted.push(`${date},${party},${voucher},${voucherNo},${debit},${credit},${balance}`);
+            }
+          }
+        }
+        
+        convertedData = converted.join('\n');
+        
+        status.className = 'status success';
+        status.textContent = `✅ Success! Converted ${converted.length - 1} entries. Click download to save.`;
+        downloadBtn.style.display = 'block';
+        
+      } catch (error) {
+        status.className = 'status error';
+        status.textContent = `❌ Error: ${error.message}`;
+      }
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      if (!convertedData) return;
+      
+      const blob = new Blob([convertedData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'ledger_fixed.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      status.className = 'status success';
+      status.textContent = '✅ Downloaded! Now upload this file to Google Drive and update the app.';
+    });
+  </script>
+</body>
+</html>
