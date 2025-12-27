@@ -71,17 +71,72 @@ async function syncFromDrive() {
   syncStatus.textContent = 'Downloading from Google Drive...';
 
   try {
-    // Use Google Drive direct download
-    const driveUrl = `https://drive.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
-    const response = await fetch(driveUrl);
+    // Try multiple methods to fetch the CSV
+    let csvText = null;
+    let error = null;
+
+    // Method 1: Direct Google Drive export URL
+    try {
+      const driveUrl = `https://drive.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
+      const response = await fetch(driveUrl, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache'
+      });
+      
+      if (response.ok) {
+        csvText = await response.text();
+      }
+    } catch (e) {
+      error = e;
+      console.log('Method 1 failed:', e);
+    }
+
+    // Method 2: Alternative Google Drive URL
+    if (!csvText) {
+      try {
+        const altUrl = `https://docs.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
+        const response = await fetch(altUrl, {
+          method: 'GET',
+          mode: 'cors'
+        });
+        
+        if (response.ok) {
+          csvText = await response.text();
+        }
+      } catch (e) {
+        error = e;
+        console.log('Method 2 failed:', e);
+      }
+    }
+
+    // Method 3: CORS proxy as fallback
+    if (!csvText) {
+      try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://drive.google.com/uc?export=download&id=' + DRIVE_FILE_ID)}`;
+        const response = await fetch(proxyUrl);
+        
+        if (response.ok) {
+          csvText = await response.text();
+        }
+      } catch (e) {
+        error = e;
+        console.log('Method 3 failed:', e);
+      }
+    }
+
+    if (!csvText) {
+      throw new Error('All sync methods failed. Please check your internet connection.');
+    }
     
-    if (!response.ok) throw new Error('Failed to fetch CSV');
-    
-    const csvText = await response.text();
     syncStatus.textContent = 'Parsing ledger data...';
     
     // Parse CSV
     ledgerData = parseCSV(csvText);
+    
+    if (ledgerData.length === 0) {
+      throw new Error('No data found in CSV file');
+    }
     
     // Save to localStorage
     localStorage.setItem('ledgerData', JSON.stringify(ledgerData));
@@ -102,7 +157,7 @@ async function syncFromDrive() {
     
   } catch (error) {
     console.error('Sync error:', error);
-    syncStatus.textContent = '❌ Sync failed - Check connection';
+    syncStatus.textContent = '❌ Sync failed';
     syncBtn.textContent = '🔄 Retry Sync';
     syncBtn.disabled = false;
     
@@ -110,8 +165,13 @@ async function syncFromDrive() {
     listEl.innerHTML = `
       <div class="empty-state">
         <h3>Sync Failed</h3>
-        <p>Could not load data from Google Drive</p>
-        <p style="font-size: 12px; margin-top: 10px;">Make sure the file is publicly accessible</p>
+        <p>${error.message || 'Could not load data from Google Drive'}</p>
+        <p style="font-size: 12px; margin-top: 10px; color: #999;">
+          Troubleshooting:<br>
+          • Check your internet connection<br>
+          • Make sure the file is accessible<br>
+          • Try again in a few seconds
+        </p>
       </div>
     `;
   }
@@ -124,7 +184,25 @@ function parseCSV(csvText) {
   // Skip header row
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
-    const cols = line.split(',').map(col => col.trim().replace(/"/g, ''));
+    
+    // Handle CSV with proper quote handling
+    const cols = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        cols.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    cols.push(current.trim());
     
     if (cols.length >= 6) {
       entries.push({
@@ -132,9 +210,9 @@ function parseCSV(csvText) {
         partyName: cols[1] || 'Unknown',
         voucherType: cols[2] || '',
         voucherNo: cols[3] || '',
-        debit: parseFloat(cols[4]) || 0,
-        credit: parseFloat(cols[5]) || 0,
-        balance: parseFloat(cols[6]) || 0
+        debit: parseFloat(cols[4].replace(/[^0-9.-]/g, '')) || 0,
+        credit: parseFloat(cols[5].replace(/[^0-9.-]/g, '')) || 0,
+        balance: parseFloat(cols[6]?.replace(/[^0-9.-]/g, '')) || 0
       });
     }
   }
